@@ -30,11 +30,11 @@ critical.
 
 | Metric | Acceptable Low Score Scenario | Critical Low Score Scenario | Action Required |
 |---|---|---|---|
-| Faithfulness | | | |
-| Answer Relevance | | | |
-| Context Recall | | | |
-| Context Precision | | | |
-| Completeness | | | |
+| Faithfulness | Khi trả lời câu hỏi mở, creative hoặc tóm tắt ý chính | Sai lệch thông số kỹ thuật, giá cả, hoặc thông tin bảo hành | Tinh chỉnh prompt, thêm guardrails ép LLM bám sát context |
+| Answer Relevance | Khi câu hỏi tối nghĩa và agent đặt câu hỏi làm rõ | Agent trả lời lạc đề hoàn toàn hoặc lặp lại thông tin không liên quan | Cải thiện query understanding, sửa prompt focus |
+| Context Recall | Trả lời đúng nhờ internal knowledge của LLM dù context thiếu | Context thiếu thông tin trọng yếu khiến LLM trả lời sai (hallucinate) | Chỉnh sửa chunking strategy, cải thiện thuật toán retrieval |
+| Context Precision | Chunks đúng bị xếp hạng thấp nhưng vẫn nằm trong context window | Chunks đúng bị đẩy ra khỏi giới hạn context window gây mất thông tin | Thêm hoặc cải thiện mô hình Reranking |
+| Completeness | Người dùng yêu cầu tóm tắt ngắn gọn | Người dùng yêu cầu danh sách chi tiết nhưng agent bỏ sót nhiều mục | Tăng số lượng retrieved chunks (top-k), sửa prompt |
 
 ### Exercise 1.2 — Bias trong LLM-as-a-Judge
 
@@ -46,15 +46,15 @@ Ba bias thường gặp:
 
 **Câu 1: Thiết kế experiment phát hiện position bias với ít nhất hai conditions.**
 
-> *Câu trả lời:*
+> *Câu trả lời:* Thiết kế A/B testing với cùng một prompt: Condition 1 đưa Answer A lên trước Answer B, Condition 2 đưa Answer B lên trước Answer A. Đánh giá xem LLM Judge có xu hướng luôn chọn câu trả lời ở vị trí đầu tiên bất kể nội dung hay không.
 
 **Câu 2: Làm thế nào giảm verbosity bias bằng rubric design?**
 
-> *Câu trả lời:*
+> *Câu trả lời:* Định nghĩa rõ ràng trong rubric rằng "Độ dài không phản ánh chất lượng". Yêu cầu LLM Judge phạt điểm những câu trả lời dài dòng, lan man và thưởng điểm cho những câu trả lời súc tích, đi thẳng vào trọng tâm vấn đề.
 
 **Câu 3: Tại sao cần calibrate LLM judge với human labels?**
 
-> *Câu trả lời:*
+> *Câu trả lời:* LLM Judge có thể có những bias riêng (quá khắt khe hoặc quá nới lỏng) và hiểu sai tiêu chí domain-specific. So sánh và căn chỉnh kết quả của LLM Judge với đánh giá của con người giúp đảm bảo độ tin cậy và phản ánh đúng giá trị thực tế mong muốn.
 
 ### Exercise 1.3 — Evaluation trong CI/CD
 
@@ -62,13 +62,16 @@ Ba bias thường gặp:
 
 | Metric | Threshold | Lý do |
 |---|---:|---|
-| Faithfulness | | |
-| Answer Relevance | | |
-| Completeness | | |
+| Faithfulness | 0.85 | Thông tin support (kỹ thuật, chính sách) phải cực kỳ chính xác, tránh hallucination gây thiệt hại. |
+| Answer Relevance | 0.70 | Cần trả lời đúng trọng tâm nhưng có thể linh hoạt khi người dùng hỏi các câu hỏi mở. |
+| Completeness | 0.75 | Đảm bảo cung cấp đủ các bước hướng dẫn hoặc thông tin cần thiết để giải quyết vấn đề của user. |
 
 **Câu 2: Khi nào dùng offline evaluation, online evaluation và human review?**
 
-> *Câu trả lời:*
+> *Câu trả lời:* 
+> - **Offline evaluation:** Dùng trong quá trình dev/test/CI để kiểm thử prompt/model mới trên tập golden dataset trước khi deploy.
+> - **Online evaluation:** Dùng trên production (dựa vào user feedback, implicit signals như click, time on page) để đo lường performance thực tế.
+> - **Human review:** Dùng để tạo golden dataset ban đầu, kiểm tra các edge cases phức tạp, hoặc khi auto-metrics có dấu hiệu mâu thuẫn/bất thường.
 
 ---
 
@@ -245,24 +248,26 @@ Chọn 3–5 dimensions:
 
 | Score | Tiêu chí domain-specific | Ví dụ response |
 |---:|---|---|
-| 5 | | |
-| 4 | | |
-| 3 | | |
-| 2 | | |
-| 1 | | |
+| 5 | Hoàn hảo: Chính xác 100% kỹ thuật/chính sách, súc tích, thái độ chuyên nghiệp, giải quyết triệt để vấn đề. | "Sản phẩm A được bảo hành 12 tháng. Để kích hoạt, bạn vui lòng truy cập link sau: [link]." |
+| 4 | Tốt: Trả lời chính xác, giải quyết được vấn đề nhưng có thể hơi dài dòng hoặc thiếu một chi tiết nhỏ không quá quan trọng. | "Sản phẩm A có bảo hành 12 tháng theo chính sách của công ty. Bạn có thể kích hoạt qua website. Nếu cần thêm hỗ trợ hãy báo tôi." |
+| 3 | Chấp nhận được: Thông tin cơ bản đúng nhưng cách diễn đạt khó hiểu, thiếu bước hướng dẫn rõ ràng. | "Có bảo hành 12 tháng nha bạn, tự lên web công ty mà kích hoạt bảo hành." |
+| 2 | Kém: Thiếu nhiều thông tin quan trọng hoặc có sai sót nhỏ về kỹ thuật/giá cả gây hiểu lầm. | "Sản phẩm A bảo hành 24 tháng (sai thông tin)." |
+| 1 | Tệ hại: Cung cấp sai hoàn toàn thông tin quan trọng, từ chối hỗ trợ sai cách, hoặc thái độ thô lỗ. | "Tôi không biết, bạn tự tìm hiểu đi." |
 
 **Ba edge cases khó chấm**
 
 | Edge Case | Tại sao khó chấm? | Rubric xử lý thế nào? |
 |---|---|---|
-| | | |
-| | | |
-| | | |
+| Câu hỏi user mơ hồ | Không có ground truth rõ ràng để đối chiếu tính Completeness. | Thưởng điểm 5 nếu agent biết đặt câu hỏi làm rõ (clarifying questions) lịch sự. |
+| Đúng thông tin nhưng quá nhiều thuật ngữ | Technically correct nhưng user experience kém do khó hiểu. | Đưa tiêu chí "Tone/clarity - Dễ hiểu với người dùng phổ thông" vào rubric để giới hạn ở mức 3 hoặc 4. |
+| Hỏi ngoài lề (Out of scope) | LLM có thể trả lời đúng câu hỏi ngoài lề nhưng lại vi phạm rule của hệ thống. | Quy định rõ: Trả lời từ chối khéo léo và hướng về sản phẩm OrbitTech sẽ được điểm tối đa (5). |
 
-**Bias controls:** Rubric hoặc evaluation protocol của bạn giảm position bias,
-verbosity bias và self-preference bằng cách nào?
+**Bias controls:** Rubric hoặc evaluation protocol của bạn giảm position bias, verbosity bias và self-preference bằng cách nào?
 
-> *Câu trả lời:*
+> *Câu trả lời:* 
+> - **Position bias:** Tráo đổi vị trí các đáp án trong prompt khi so sánh (Swap test).
+> - **Verbosity bias:** Ghi rõ trong rubric tiêu chí "súc tích" và phạt điểm các câu trả lời dài dòng không mang lại giá trị thêm.
+> - **Self-preference:** Cung cấp few-shot examples đa dạng về văn phong để LLM không chỉ ưu tiên văn phong giống chính nó.
 
 ### Exercise 3.4 — Framework Comparison (Bonus +5)
 
@@ -305,11 +310,11 @@ thay đổi Context Recall hay không.
 
 **Tại sao Recall dự kiến không đổi?**
 
-> *Câu trả lời:*
+> *Câu trả lời:* Vì Context Recall đo lường mức độ bao phủ của expected answer trong TOÀN BỘ tập retrieved chunks (thường tính bằng set intersection hoặc LLM extract trên tổng thể). Reranking chỉ thay đổi thứ tự (order) của các chunks chứ không thay đổi tập hợp các chunks, nên lượng thông tin tổng thể cung cấp cho LLM không thay đổi.
 
 **Khi nào reranking không đủ và cần sửa retriever/query/chunking?**
 
-> *Câu trả lời:*
+> *Câu trả lời:* Khi Context Recall thấp (thông tin cần thiết thực sự không tồn tại trong tập retrieved chunks). Lúc này, reranking không có tác dụng vì "không có bột mới gột nên hồ". Ta cần phải tinh chỉnh thuật toán retriever (dùng hybrid search), cải thiện query formulation (query expansion), hoặc xem lại chiến lược chunking để đảm bảo thông tin không bị cắt nát.
 
 ---
 

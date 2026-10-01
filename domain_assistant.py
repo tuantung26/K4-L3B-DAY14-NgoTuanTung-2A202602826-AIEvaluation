@@ -21,7 +21,8 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from dotenv import load_dotenv
-from openai import OpenAI, OpenAIError
+from google import genai
+from google.genai.errors import APIError as GenAIError
 
 load_dotenv(Path(__file__).resolve().with_name(".env"))
 
@@ -242,27 +243,27 @@ class TextGenerator(Protocol):
     def generate(self, prompt: str) -> str: ...
 
 
-class OpenAIGenerator:
+class GoogleGenerator:
     def __init__(self, max_output_tokens: int = 300) -> None:
-        api_key = os.getenv("OPENAI_API_KEY", "").strip()
-        self.model = os.getenv("OPENAI_MODEL", "").strip()
+        api_key = os.getenv("GOOGLE_API_KEY", "").strip()
+        self.model_name = os.getenv("GOOGLE_MODEL", "gemini-2.5-flash").strip()
         if not api_key:
-            raise RuntimeError("OPENAI_API_KEY is missing from .env")
-        if not self.model:
-            raise RuntimeError("OPENAI_MODEL is missing from .env")
-        self.client = OpenAI(api_key=api_key)
+            raise RuntimeError("GOOGLE_API_KEY is missing from .env")
+        self.client = genai.Client(api_key=api_key)
         self.max_output_tokens = max_output_tokens
 
     def generate(self, prompt: str) -> str:
-        response = self.client.responses.create(
-            model=self.model,
-            input=prompt,
-            temperature=0,
-            max_output_tokens=self.max_output_tokens,
+        response = self.client.models.generate_content(
+            model=self.model_name,
+            contents=prompt,
+            config=genai.types.GenerateContentConfig(
+                temperature=0.0,
+                max_output_tokens=self.max_output_tokens,
+            )
         )
-        answer = response.output_text.strip()
+        answer = response.text.strip()
         if not answer:
-            raise RuntimeError("OpenAI returned an empty answer")
+            raise RuntimeError("Google returned an empty answer")
         return answer
 
 
@@ -299,7 +300,7 @@ class DomainAssistant:
         return cls(
             corpus_id,
             BM25Retriever(chunks),
-            generator if generator is not None else OpenAIGenerator(),
+            generator if generator is not None else GoogleGenerator(),
             top_k,
         )
 
@@ -508,7 +509,7 @@ def main() -> int:
             json.dumps(artifact, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-    except (OSError, OpenAIError, TypeError, ValueError, RuntimeError) as exc:
+    except (OSError, GenAIError, TypeError, ValueError, RuntimeError) as exc:
         print(f"ERROR: {exc}")
         return 2
     print(f"Generated {len(artifact['answers'])} actual answers: {output}")
