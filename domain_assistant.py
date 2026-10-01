@@ -246,25 +246,32 @@ class TextGenerator(Protocol):
 class GoogleGenerator:
     def __init__(self, max_output_tokens: int = 300) -> None:
         api_key = os.getenv("GOOGLE_API_KEY", "").strip()
-        self.model_name = os.getenv("GOOGLE_MODEL", "gemini-2.5-flash").strip()
+        self.model_name = os.getenv("GOOGLE_MODEL", "gemini-1.5-flash").strip()
         if not api_key:
             raise RuntimeError("GOOGLE_API_KEY is missing from .env")
         self.client = genai.Client(api_key=api_key)
         self.max_output_tokens = max_output_tokens
 
     def generate(self, prompt: str) -> str:
-        response = self.client.models.generate_content(
-            model=self.model_name,
-            contents=prompt,
-            config=genai.types.GenerateContentConfig(
-                temperature=0.0,
-                max_output_tokens=self.max_output_tokens,
-            )
-        )
-        answer = response.text.strip()
-        if not answer:
-            raise RuntimeError("Google returned an empty answer")
-        return answer
+        for attempt in range(5):
+            try:
+                time.sleep(4)
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                    config=genai.types.GenerateContentConfig(
+                        temperature=0.0,
+                        max_output_tokens=self.max_output_tokens,
+                    )
+                )
+                answer = response.text.strip()
+                if not answer:
+                    raise RuntimeError("Google returned an empty answer")
+                return answer
+            except Exception as e:
+                if attempt == 4:
+                    raise
+                time.sleep(30)
 
 
 @dataclass(frozen=True)
