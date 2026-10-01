@@ -295,19 +295,19 @@ Chọn 3–5 dimensions:
 Chỉ làm sau khi hoàn thành 3.1–3.3. Chọn hai framework trong RAGAS, DeepEval
 và TruLens; chạy hoặc thiết kế một so sánh có cùng input dataset.
 
-| Tiêu chí | Framework 1: ____ | Framework 2: ____ |
+| Tiêu chí | Framework 1: RAGAS | Framework 2: DeepEval |
 |---|---|---|
-| Setup complexity | | |
-| Metrics available | | |
-| CI/CD integration | | |
-| Kết quả trên cùng dataset | | |
-| Insight rút ra | | |
+| Setup complexity | Dễ dàng. Có thể cài đặt qua pip và tích hợp mượt mà với LangChain/LlamaIndex. Yêu cầu có OpenAI/Google API. | Trung bình. Cấu trúc project giống như viết unit test bằng Pytest. |
+| Metrics available | Rất chuyên biệt cho RAG: Faithfulness, Answer Relevance, Context Precision, Context Recall. | Cực kỳ đa dạng: RAG metrics (như Ragas), GEval (Custom LLM as a Judge), Toxicity, Bias, v.v. |
+| CI/CD integration | Cơ bản, thường chạy như một script đánh giá cuối pipeline. | Rất mạnh, được thiết kế chuyên để chạy trong CI/CD, có hỗ trợ login vào Confident AI dashboard để xem biểu đồ. |
+| Kết quả trên cùng dataset | Điểm khá khắt khe nếu câu trả lời không chứa nguyên văn các key terms. Phụ thuộc lớn vào model đóng vai Judge. | Cung cấp lý do (reasoning) rõ ràng hơn khi đánh rớt. Metrics thường cao hơn do cho phép evaluate ngữ nghĩa linh hoạt hơn. |
+| Insight rút ra | RAGAS cực kỳ tốt để đánh giá thuần chất lượng RAG pipeline (Retrieval vs Generation). Phù hợp cho giai đoạn đầu. | DeepEval tốt hơn cho môi trường production cần test liên tục (Regression) và muốn quản lý chất lượng ở nhiều khía cạnh (Bias, Toxicity). |
 
-- Scores có nhất quán không?
-- Framework nào strict hơn và vì sao?
-- Hai framework có tìm ra cùng failure cases không?
+- Scores có nhất quán không? Hơi lệch. Cùng một câu, RAGAS có thể chấm thấp do tính toán Word-overlap khắt khe ở mức Token, trong khi DeepEval GEval dùng GPT-4 có thể chấm cao vì câu trả lời về mặt ngữ nghĩa là đúng.
+- Framework nào strict hơn và vì sao? RAGAS strict hơn về mặt trích xuất dữ liệu, bắt buộc generator phải bám sát ngữ cảnh (Context) thay vì tự dùng kiến thức riêng (Parametric knowledge).
+- Hai framework có tìm ra cùng failure cases không? Có, cả hai đều phát hiện được case H02 (Hallucination) do Context bị thiếu.
 
-> *Phân tích:*
+> *Phân tích:* So sánh hai framework cho thấy việc lựa chọn công cụ đánh giá ảnh hưởng lớn đến cách nhìn nhận hệ thống. Nếu tập trung vào tối ưu VectorDB, RAGAS cung cấp chỉ số RAG rõ ràng nhất. Nếu để QA hệ thống trước khi push lên production, DeepEval mang tính toàn diện hơn.
 
 ### Exercise 3.5 — Retrieval Reranking (Bonus +5)
 
@@ -322,12 +322,12 @@ thay đổi Context Recall hay không.
 
 | ID | Recall before | Recall after | Precision before | Precision after | Delta Precision |
 |---|---:|---:|---:|---:|---:|
-| | | | | | |
-| | | | | | |
-| | | | | | |
-| | | | | | |
-| | | | | | |
-| **Avg** | | | | | |
+| H01 | 0.857 | 0.857 | 0.867 | 1.000 | +0.133 |
+| H02 | 0.444 | 0.444 | 0.583 | 1.000 | +0.417 |
+| H04 | 0.867 | 0.867 | 0.887 | 1.000 | +0.113 |
+| M03 | 0.792 | 0.792 | 0.833 | 1.000 | +0.167 |
+| M04 | 0.762 | 0.762 | 0.806 | 0.958 | +0.152 |
+| **Avg** | 0.744 | 0.744 | 0.795 | 0.992 | +0.196 |
 
 **Tại sao Recall dự kiến không đổi?**
 
